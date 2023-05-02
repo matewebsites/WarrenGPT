@@ -1,0 +1,178 @@
+ import alpaca_trade_api as tradeapi
+import requests
+import json
+import time
+import openai_secret_manager
+from datetime import datetime, timedelta
+from transformers import pipeline, set_seed
+
+# set up Alpaca API
+secrets = openai_secret_manager.get_secret("alpaca")
+
+api_key = secrets["api_key"]
+api_secret = secrets["api_secret"]
+base_url = secrets["base_url"]
+api = tradeapi.REST(api_key, api_secret, base_url, api_version='v2')
+
+# set up OpenAI API
+openai_secrets = openai_secret_manager.get_secret("openai")
+openai_api_key = openai_secrets["api_key"]
+prompt = "Please predict the closing price for AAPL (Apple Inc.) tomorrow"
+model = "text-davinci-002"
+set_seed(42)
+generator = pipeline('text-generation', model=model, api_key=openai_api_key)
+
+# function to get stock price
+def get_stock_price(symbol):
+    r = requests.get(f"https://api.alpaca.markets/v2/stocks/{symbol}/trades/latest")
+    data = json.loads(r.content.decode('utf-8'))
+    return float(data['price'])
+
+# function to get sentiment of a given text
+def get_sentiment(text):
+    response = requests.post('https://api.deepai.org/api/sentiment-analysis', data={'text': text},
+                             headers={'api-key': openai_secrets["deepai_key"]})
+    data = json.loads(response.content.decode('utf-8'))
+    return data['output'][0]['sentiment']
+
+# function to generate prediction for a stock symbol
+def generate_prediction(prompt, model):
+    response = generator(prompt, max_length=20, num_return_sequences=1)
+    prediction = response[0]['generated_text'].replace('$','').strip()
+    return float(prediction)
+
+# function to make a simulated trade
+def make_trade(symbol, qty, side):
+    try:
+        api.submit_order(symbol=symbol, qty=qty, side=side, type='market', time_in_force='gtc', 
+                         trade_mode='paper_only')
+        return True
+    except:
+        return False
+
+# function to handle messages
+def handle_message(msg):
+    symbol = msg.lower()
+    if symbol == 'quit':
+        return "Goodbye!"
+    try:
+        price = get_stock_price(symbol)
+        prediction = generate_prediction(prompt, model)
+        sentiment = get_sentiment(msg)
+        if prediction > price and sentiment == 'Positive':
+            make_trade(symbol, 1, 'buy')
+            return f"Predicted price ({prediction}) is higher than current price ({price}). Bought 1 share of {symbol}."
+        elif prediction < price and sentiment == 'Negative':
+            make_trade(symbol, 1, 'sell')
+            return f"Predicted price ({prediction}) is lower than current price ({price}). Sold 1 share of {symbol}."
+        else:
+            return "No action taken."
+    except:
+        return "Invalid symbol."
+
+# main function
+def main():
+    print("Welcome to the trading bot! Please enter a stock symbol to get started.")
+    while True:
+        msg = input("You: ")
+        response = handle_message(msg)
+        print("Bot:", response)
+        if response == "Goodbye!":
+            break
+
+if __name__ == '__main__':
+    main()
+import java.util.Scanner;
+
+public class ChatBot {
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+
+        System.out.println("Hi, I'm your trading bot. How can I assist you today?");
+
+        while (true) {
+            String input = scanner.nextLine();
+
+            if (input.equalsIgnoreCase("exit")) {
+                System.out.println("Goodbye!");
+                break;
+            } else {
+                // Call your bot's function based on user input
+                String output = yourBotFunction(input);
+                System.out.println(output);
+            }
+        }
+    }
+
+    public static String yourBotFunction(String input) {
+        // Your bot's logic here
+        return "Your response";
+    }
+}
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Chatbot</title>
+	<style>
+		body {
+			background-color: #f2f2f2;
+			font-family: Arial, sans-serif;
+		}
+		
+		.chat-container {
+			max-width: 500px;
+			margin: 0 auto;
+			padding: 20px;
+			background-color: #fff;
+			border-radius: 10px;
+			box-shadow: 0 0 10px rgba(0,0,0,0.2);
+		}
+		
+		.chat-box {
+			height: 300px;
+			overflow-y: scroll;
+			padding: 10px;
+			border: 1px solid #ccc;
+			border-radius: 5px;
+			margin-bottom: 10px;
+		}
+		
+		.chat-input {
+			width: 100%;
+			padding: 10px;
+			border: none;
+			border-radius: 5px;
+			box-shadow: 0 0 5px rgba(0,0,0,0.2);
+			margin-bottom: 10px;
+			font-size: 16px;
+		}
+		
+		.chat-btn {
+			background-color: #4CAF50;
+			color: #fff;
+			border: none;
+			border-radius: 5px;
+			padding: 10px 20px;
+			font-size: 16px;
+			cursor: pointer;
+		}
+		
+		.chat-btn:hover {
+			background-color: #3e8e41;
+		}
+	</style>
+</head>
+<body>
+	<div class="chat-container">
+		<div class="chat-box" id="chatBox">
+			<!-- Chat messages will be displayed here -->
+		</div>
+		<input type="text" placeholder="Enter message..." class="chat-input" id="chatInput">
+		<button class="chat-btn" id="sendBtn">Send</button>
+	</div>
+
+	<script>
+		// Code to handle user input and display bot responses would go here
+	</script>
+</body>
+</html>
